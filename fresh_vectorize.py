@@ -94,8 +94,10 @@ def run_potrace(bmp_path: Path, svg_path: Path, width: int, height: int):
       -t N        : suppress speckles of up to N pixels (turdsize)
       -a N        : corner threshold (0=sharp, 1.334=default smooth)
       -O N        : optimization tolerance (higher=simpler paths)
-      -W, -H      : output dimensions
-      --tight     : tighten paths
+
+    NOTE: We do NOT use --tight or -W/-H here. Potrace uses the BMP page
+    dimensions directly, which preserves the original whitespace and
+    positioning of the floor plan within the image.
     """
     cmd = [
         "potrace",
@@ -105,9 +107,6 @@ def run_potrace(bmp_path: Path, svg_path: Path, width: int, height: int):
         "-t", "10",            # Remove specks < 10px
         "-a", "0.55",          # Moderate alphamax — sharp corners but smooth arcs
         "-O", "0.2",           # Tight optimization tolerance
-        "--tight",             # Tighter fit to original
-        "-W", f"{width}pt",    # Match original pixel width
-        "-H", f"{height}pt",   # Match original pixel height
     ]
     print(f"  Running: {' '.join(cmd)}")
     result = subprocess.run(cmd, capture_output=True, text=True)

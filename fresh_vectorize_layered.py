@@ -30,7 +30,7 @@ from PIL import Image
 # ──────────────────────────────────────────────
 # Configuration
 # ──────────────────────────────────────────────
-INPUT_PNG = "BIMIT Plan _ Model X.png"
+INPUT_PNG = "test.jpeg"
 BASE_DIR = Path(__file__).parent
 INPUT_PATH = BASE_DIR / INPUT_PNG
 OUTPUT_DIR = BASE_DIR / "fresh_output"
@@ -48,6 +48,10 @@ if not GEMINI_API_KEY:
     sys.exit("GEMINI_API_KEY not set in .env")
 
 GEMINI_MODEL = "nano-banana-pro-preview"
+
+# Determine MIME type from extension
+_ext = INPUT_PATH.suffix.lower()
+INPUT_MIME = "image/jpeg" if _ext in (".jpg", ".jpeg") else "image/png"
 
 # ──────────────────────────────────────────────
 # Layer definitions
@@ -171,7 +175,7 @@ def detect_present_elements(img_bytes: bytes) -> Dict[str, bool]:
         contents=[
             types.Content(
                 parts=[
-                    types.Part.from_bytes(data=img_bytes, mime_type="image/png"),
+                    types.Part.from_bytes(data=img_bytes, mime_type=INPUT_MIME),
                     types.Part.from_text(text=prompt),
                 ]
             )
@@ -221,7 +225,7 @@ def generate_layer_image(
         contents=[
             types.Content(
                 parts=[
-                    types.Part.from_bytes(data=img_bytes, mime_type="image/png"),
+                    types.Part.from_bytes(data=img_bytes, mime_type=INPUT_MIME),
                     types.Part.from_text(text=prompt),
                 ]
             )
@@ -280,7 +284,7 @@ def detect_door_hinges(img_bytes: bytes, doors: list) -> list:
         contents=[
             types.Content(
                 parts=[
-                    types.Part.from_bytes(data=img_bytes, mime_type="image/png"),
+                    types.Part.from_bytes(data=img_bytes, mime_type=INPUT_MIME),
                     types.Part.from_text(text=prompt),
                 ]
             )
@@ -563,7 +567,7 @@ def compose_layered_svg(
      width="{width}" height="{height}"
      preserveAspectRatio="xMidYMid meet">
 
-  <title>BIMIT Floor Plan - Model X (Layered)</title>
+  <title>Floor Plan (Layered)</title>
   <desc>Architectural floor plan with AI-generated layers (Gemini {GEMINI_MODEL})</desc>
 
   <defs>
@@ -837,6 +841,32 @@ def main():
         mask_path = OUTPUT_DIR / "layer_doors.png"
         cv2.imwrite(str(mask_path), skel_dilated)
 
+    # Step 3c: Clean stairs mask — remove oversized components (room outlines).
+    # Real stairs are small clusters of parallel lines; Gemini sometimes
+    # includes the entire room boundary as part of the stairs layer.
+    if "stairs" in masks:
+        stair_mask = masks["stairs"]
+        stair_px_before = cv2.countNonZero(stair_mask)
+        n_sc, sc_labels, sc_stats, _ = cv2.connectedComponentsWithStats(
+            stair_mask, connectivity=8
+        )
+        # Area thresholds: too small = noise, too large = room outline
+        MIN_STAIR_AREA = 100
+        MAX_STAIR_AREA = 15000
+        removed_stair = 0
+        for i in range(1, n_sc):
+            area = sc_stats[i, cv2.CC_STAT_AREA]
+            if area < MIN_STAIR_AREA or area > MAX_STAIR_AREA:
+                stair_mask[sc_labels == i] = 0
+                removed_stair += 1
+                tag = "noise" if area < MIN_STAIR_AREA else "room outline"
+                print(f"  [stairs] Removed {tag}: CC{i} area={area}")
+        if removed_stair:
+            stair_px_after = cv2.countNonZero(stair_mask)
+            print(f"  [stairs] Filtered: {stair_px_before} → {stair_px_after} px ({removed_stair} components removed)")
+            masks["stairs"] = stair_mask
+            cv2.imwrite(str(OUTPUT_DIR / "layer_stairs.png"), stair_mask)
+
     # Step 4: Vectorize all layers with potrace
     print(f"\n[4/5] Vectorizing layers with potrace...")
     layer_svgs: Dict[str, Optional[str]] = {}
@@ -856,7 +886,8 @@ def main():
     print(f"\n[5/5] Composing layered SVG...")
     layered_svg = compose_layered_svg(layer_svgs, w, h)
 
-    output_svg = OUTPUT_DIR / "BIMIT_Plan_Model_X_layered.svg"
+    stem = INPUT_PATH.stem.replace(" ", "_")
+    output_svg = OUTPUT_DIR / f"{stem}_layered.svg"
     with open(output_svg, "w") as f:
         f.write(layered_svg)
     print(f"  Layered SVG: {output_svg} ({output_svg.stat().st_size / 1024:.0f} KB)")

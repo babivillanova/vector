@@ -1,0 +1,752 @@
+[
+  {
+    "label": "wall",
+    "bbox": [
+      738,
+      494,
+      946,
+      514
+    ],
+    "description": "Top exterior wall of the kitchen area"
+  },
+  {
+    "label": "wall",
+    "bbox": [
+      946,
+      494,
+      966,
+      674
+    ],
+    "description": "Right wall of the kitchen area"
+  },
+  {
+    "label": "wall",
+    "bbox": [
+      966,
+      674,
+      1014,
+      694
+    ],
+    "description": "Short wall segment near kitchen island"
+  },
+  {
+    "label": "wall",
+    "bbox": [
+      1014,
+      494,
+      1034,
+      674
+    ],
+    "description": "Left wall of the main living area"
+  },
+  {
+    "label": "wall",
+    "bbox": [
+      1034,
+      494,
+      1106,
+      514
+    ],
+    "description": "Top wall segment of the main living area"
+  },
+  {
+    "label": "wall",
+    "bbox": [
+      1106,
+      494,
+      1126,
+      586
+    ],
+    "description": "Short vertical wall segment"
+  },
+  {
+    "label": "wall",
+    "bbox": [
+      1126,
+      586,
+      1186,
+      606
+    ],
+    "description": "Short horizontal wall segment"
+  },
+  {
+    "label": "wall",
+    "bbox": [
+      1186,
+      494,
+      1206,
+      606
+    ],
+    "description": "Vertical wall segment"
+  },
+  {
+    "label": "wall",
+    "bbox": [
+      1206,
+      494,
+      1286,
+      514
+    ],
+    "description": "Top wall segment"
+  },
+  {
+    "label": "wall",
+    "bbox": [
+      1286,
+      586,
+      1458,
+      606
+    ],
+    "description": "Top wall of the main living area with window"
+  },
+  {
+    "label": "wall",
+    "bbox": [
+      1458,
+      586,
+      1478,
+      606
+    ],
+    "description": "Corner wall segment"
+  },
+  {
+    "label": "wall",
+    "bbox": [
+      1478,
+      586,
+      1518,
+      606
+    ],
+    "description": "Top wall segment of the bathroom area"
+  },
+  {
+    "label": "wall",
+    "bbox": [
+      1518,
+      494,
+      1538,
+      606
+    ],
+    "description": "Left wall of the top right bathroom"
+  },
+  {
+    "label": "wall",
+    "bbox": [
+      1538,
+      494,
+      1834,
+      514
+    ],
+    "description": "Top wall of the top right bathroom"
+  },
+  {
+    "label": "wall",
+    "bbox": [
+      1834,
+      494,
+      1854,
+      606
+    ],
+    "description": "Right wall of the top right bathroom"
+  },
+  {
+    "label": "wall",
+    "bbox": [
+      1722,
+      606,
+      1854,
+      626
+    ],
+    "description": "Bottom wall of the top right bathroom"
+  },
+  {
+    "label": "wall",
+    "bbox": [
+      1722,
+      626,
+      1742,
+      698
+    ],
+    "description": "Left wall of the shower area"
+  },
+  {
+    "label": "wall",
+    "bbox": [
+      1742,
+      698,
+      1834,
+      718
+    ],
+    "description": "Bottom wall of the shower area"
+  },
+  {
+    "label": "wall",
+    "bbox": [
+      1834,
+      698,
+      1854,
+      842
+    ],
+    "description": "Right exterior wall, top section"
+  },
+  {
+    "label": "wall",
+    "bbox": [
+      1834,
+      842,
+      1854,
+      1298
+    ],
+    "description": "Right exterior wall, bottom section"
+  },
+  {
+    "label": "wall",
+    "bbox": [
+      1742,
+      842,
+      1834,
+      862
+    ],
+    "description": "Interior wall separating rooms on the right"
+  },
+  {
+    "label": "wall",
+    "bbox": [
+      1518,
+      698,
+      1650,
+      718
+    ],
+    "description": "Top wall of the bottom right room"
+  },
+  {
+    "label": "wall",
+    "bbox": [
+      1518,
+      718,
+      1538,
+      842
+    ],
+    "description": "Left wall of the bottom right room, top section"
+  },
+  {
+    "label": "wall",
+    "bbox": [
+      1538,
+      842,
+      1650,
+      862
+    ],
+    "description": "Interior wall separating rooms on the right"
+  },
+  {
+    "label": "wall",
+    "bbox": [
+      1518,
+      954,
+      1538,
+      1202
+    ],
+    "description": "Left wall of the bottom right room, bottom section"
+  },
+  {
+    "label": "wall",
+    "bbox": [
+      1538,
+      1202,
+      1594,
+      1222
+    ],
+    "description": "Bottom wall of the bottom right room, left section"
+  },
+  {
+    "label": "wall",
+    "bbox": [
+      1594,
+      1222,
+      1614,
+      1298
+    ],
+    "description": "Corner wall segment"
+  },
+  {
+    "label": "wall",
+    "bbox": [
+      1614,
+      1278,
+      1762,
+      1298
+    ],
+    "description": "Bottom wall of the bottom right room, middle section"
+  },
+  {
+    "label": "wall",
+    "bbox": [
+      1762,
+      1278,
+      1834,
+      1298
+    ],
+    "description": "Bottom wall of the bottom right room, right section"
+  },
+  {
+    "label": "wall",
+    "bbox": [
+      1498,
+      1298,
+      1614,
+      1318
+    ],
+    "description": "Angled wall segment, bottom right"
+  },
+  {
+    "label": "wall",
+    "bbox": [
+      1386,
+      1354,
+      1498,
+      1374
+    ],
+    "description": "Bottom angled wall segment"
+  },
+  {
+    "label": "wall",
+    "bbox": [
+      1274,
+      1298,
+      1386,
+      1318
+    ],
+    "description": "Angled wall segment, bottom left"
+  },
+  {
+    "label": "wall",
+    "bbox": [
+      1254,
+      1222,
+      1274,
+      1298
+    ],
+    "description": "Corner wall segment"
+  },
+  {
+    "label": "wall",
+    "bbox": [
+      1198,
+      1222,
+      1254,
+      1242
+    ],
+    "description": "Bottom wall of the main living area, right section"
+  },
+  {
+    "label": "wall",
+    "bbox": [
+      1198,
+      1242,
+      1218,
+      1298
+    ],
+    "description": "Vertical wall segment"
+  },
+  {
+    "label": "wall",
+    "bbox": [
+      1086,
+      1278,
+      1198,
+      1298
+    ],
+    "description": "Bottom wall of the main living area, middle section"
+  },
+  {
+    "label": "wall",
+    "bbox": [
+      974,
+      1278,
+      1086,
+      1298
+    ],
+    "description": "Bottom wall of the main living area, left section"
+  },
+  {
+    "label": "wall",
+    "bbox": [
+      906,
+      1074,
+      926,
+      1298
+    ],
+    "description": "Left exterior wall, bottom section"
+  },
+  {
+    "label": "wall",
+    "bbox": [
+      926,
+      1278,
+      974,
+      1298
+    ],
+    "description": "Bottom exterior wall, left section"
+  },
+  {
+    "label": "wall",
+    "bbox": [
+      814,
+      1054,
+      906,
+      1074
+    ],
+    "description": "Bottom wall of the bottom left room"
+  },
+  {
+    "label": "wall",
+    "bbox": [
+      606,
+      1054,
+      814,
+      1074
+    ],
+    "description": "Bottom wall of the bottom left room"
+  },
+  {
+    "label": "wall",
+    "bbox": [
+      606,
+      842,
+      626,
+      1054
+    ],
+    "description": "Left exterior wall, middle section"
+  },
+  {
+    "label": "wall",
+    "bbox": [
+      626,
+      930,
+      674,
+      950
+    ],
+    "description": "Interior wall segment"
+  },
+  {
+    "label": "wall",
+    "bbox": [
+      674,
+      842,
+      694,
+      950
+    ],
+    "description": "Interior vertical wall segment"
+  },
+  {
+    "label": "wall",
+    "bbox": [
+      626,
+      842,
+      674,
+      862
+    ],
+    "description": "Interior wall segment"
+  },
+  {
+    "label": "wall",
+    "bbox": [
+      738,
+      770,
+      758,
+      962
+    ],
+    "description": "Interior vertical wall segment"
+  },
+  {
+    "label": "wall",
+    "bbox": [
+      758,
+      770,
+      778,
+      862
+    ],
+    "description": "Interior vertical wall segment"
+  },
+  {
+    "label": "wall",
+    "bbox": [
+      606,
+      770,
+      738,
+      790
+    ],
+    "description": "Interior wall segment"
+  },
+  {
+    "label": "wall",
+    "bbox": [
+      502,
+      770,
+      606,
+      790
+    ],
+    "description": "Interior wall segment"
+  },
+  {
+    "label": "wall",
+    "bbox": [
+      502,
+      698,
+      522,
+      770
+    ],
+    "description": "Left exterior wall, top section"
+  },
+  {
+    "label": "wall",
+    "bbox": [
+      522,
+      698,
+      738,
+      718
+    ],
+    "description": "Top wall of the bottom left room"
+  },
+  {
+    "label": "wall",
+    "bbox": [
+      738,
+      514,
+      758,
+      698
+    ],
+    "description": "Left wall of the kitchen area"
+  },
+  {
+    "label": "door",
+    "bbox": [
+      1650,
+      626,
+      1722,
+      698
+    ],
+    "description": "Door swing into the top right bathroom"
+  },
+  {
+    "label": "door",
+    "bbox": [
+      1650,
+      862,
+      1742,
+      954
+    ],
+    "description": "Door swing into the bottom right room"
+  },
+  {
+    "label": "door",
+    "bbox": [
+      1538,
+      862,
+      1630,
+      954
+    ],
+    "description": "Door swing into the central area"
+  },
+  {
+    "label": "door",
+    "bbox": [
+      814,
+      982,
+      906,
+      1054
+    ],
+    "description": "Door swing into the bottom left room"
+  },
+  {
+    "label": "door",
+    "bbox": [
+      674,
+      950,
+      738,
+      1014
+    ],
+    "description": "Door swing into the small room"
+  },
+  {
+    "label": "door",
+    "bbox": [
+      674,
+      862,
+      738,
+      930
+    ],
+    "description": "Door swing into the small room"
+  },
+  {
+    "label": "door",
+    "bbox": [
+      674,
+      790,
+      738,
+      862
+    ],
+    "description": "Door swing into the small room"
+  },
+  {
+    "label": "door",
+    "bbox": [
+      1086,
+      514,
+      1186,
+      586
+    ],
+    "description": "Door swing into the main living area"
+  },
+  {
+    "label": "window",
+    "bbox": [
+      1286,
+      586,
+      1458,
+      606
+    ],
+    "description": "Window in the top wall of the main living area"
+  },
+  {
+    "label": "window",
+    "bbox": [
+      1834,
+      718,
+      1854,
+      842
+    ],
+    "description": "Window in the right exterior wall"
+  },
+  {
+    "label": "window",
+    "bbox": [
+      1614,
+      1278,
+      1762,
+      1298
+    ],
+    "description": "Window in the bottom wall of the bottom right room"
+  },
+  {
+    "label": "window",
+    "bbox": [
+      1386,
+      1354,
+      1498,
+      1374
+    ],
+    "description": "Window in the bottom angled wall"
+  },
+  {
+    "label": "window",
+    "bbox": [
+      974,
+      1278,
+      1086,
+      1298
+    ],
+    "description": "Window in the bottom wall of the main living area"
+  },
+  {
+    "label": "bathroom_fixture",
+    "bbox": [
+      1558,
+      514,
+      1594,
+      570
+    ],
+    "description": "Toilet in the top right bathroom"
+  },
+  {
+    "label": "bathroom_fixture",
+    "bbox": [
+      1630,
+      514,
+      1686,
+      550
+    ],
+    "description": "Sink in the top right bathroom"
+  },
+  {
+    "label": "bathroom_fixture",
+    "bbox": [
+      1742,
+      514,
+      1834,
+      606
+    ],
+    "description": "Shower tray in the top right bathroom"
+  },
+  {
+    "label": "bathroom_fixture",
+    "bbox": [
+      1538,
+      626,
+      1574,
+      662
+    ],
+    "description": "Sink in the small bathroom area"
+  },
+  {
+    "label": "bathroom_fixture",
+    "bbox": [
+      542,
+      718,
+      598,
+      754
+    ],
+    "description": "Toilet in the bottom left bathroom"
+  },
+  {
+    "label": "bathroom_fixture",
+    "bbox": [
+      522,
+      790,
+      558,
+      826
+    ],
+    "description": "Sink in the bottom left bathroom"
+  },
+  {
+    "label": "kitchen_fixture",
+    "bbox": [
+      758,
+      626,
+      814,
+      698
+    ],
+    "description": "Stovetop on the kitchen counter"
+  },
+  {
+    "label": "kitchen_fixture",
+    "bbox": [
+      834,
+      514,
+      906,
+      570
+    ],
+    "description": "Kitchen sink on the counter"
+  },
+  {
+    "label": "kitchen_fixture",
+    "bbox": [
+      758,
+      514,
+      946,
+      698
+    ],
+    "description": "L-shaped kitchen counter"
+  },
+  {
+    "label": "furniture",
+    "bbox": [
+      946,
+      698,
+      1034,
+      862
+    ],
+    "description": "Kitchen island"
+  }
+]

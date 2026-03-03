@@ -20,7 +20,7 @@ import re
 import json
 import tempfile
 from pathlib import Path
-from typing import Dict, Optional, Tuple
+from typing import Callable, Dict, Optional, Tuple
 
 import cv2
 import numpy as np
@@ -721,6 +721,7 @@ def run_pipeline(
     mime_type: str,
     output_dir: Path,
     use_cache: bool = False,
+    on_event: Optional[Callable[[dict], None]] = None,
 ) -> Dict[str, bytes]:
     """
     Run full vectorization pipeline.
@@ -745,6 +746,16 @@ def run_pipeline(
     output_dir.mkdir(parents=True, exist_ok=True)
     outputs: Dict[str, bytes] = {}
 
+    # Event streaming helpers (no-op when on_event is None)
+    import base64 as _b64
+
+    def _emit(evt):
+        if on_event is not None:
+            on_event(evt)
+
+    def _img_b64(raw_bytes):
+        return _b64.b64encode(raw_bytes).decode("ascii")
+
     # Decode image to get dimensions
     img_array = np.frombuffer(img_bytes, dtype=np.uint8)
     orig = cv2.imdecode(img_array, cv2.IMREAD_GRAYSCALE)
@@ -752,18 +763,23 @@ def run_pipeline(
         raise ValueError(f"Cannot decode image: {filename}")
     h, w = orig.shape
     print(f"\n  Input: {w}x{h} — {filename}")
+    _emit({"type": "pipeline_start", "width": int(w), "height": int(h), "filename": filename})
 
     # Step 1: Vision pre-flight — detect which elements exist
     print(f"\n[1/5] Asking Gemini what elements are present...")
+    _emit({"type": "step_start", "step": 1, "label": "Detecting elements..."})
     present = detect_present_elements(img_bytes, mime_type)
     for name in LAYER_ORDER:
         status = "YES" if present.get(name, False) else "NO"
         print(f"  {name:12s}: {status}")
+    _emit({"type": "element_detection", "layers": {k: v for k, v in present.items()}})
 
-    # Step 2: Generate layer images via Gemini
-    print(f"\n[2/5] Generating layer images via Gemini {GEMINI_MODEL}...")
+    # Step 2: Generate layer images (parallel)
+    print(f"\n[2/5] Generating layer images ({GEMINI_MODEL})...")
     layer_images: Dict[str, Path] = {}
 
+    # Separate cached layers from those needing generation
+    layers_to_generate = []
     for layer_name in LAYER_ORDER:
         if not present.get(layer_name, False):
             print(f"\n  --- {layer_name.upper()} --- SKIPPED (not detected)")
@@ -772,26 +788,70 @@ def run_pipeline(
         cfg = LAYERS[layer_name]
         out_img = output_dir / f"gemini_{layer_name}.png"
 
-        # Skip regeneration if cached image exists
         if use_cache and out_img.exists() and out_img.stat().st_size > 1000:
             print(f"\n  --- {layer_name.upper()} --- (cached)")
             layer_images[layer_name] = out_img
+            _emit({"type": "layer_generation", "layer": layer_name,
+                   "image_b64": _img_b64(out_img.read_bytes())})
             continue
 
-        print(f"\n  --- {layer_name.upper()} ---")
-        result = generate_layer_image(
-            img_bytes, layer_name, cfg["prompt"], out_img,
-            mime_type=mime_type,
-        )
-        if result:
-            layer_images[layer_name] = result
+        layers_to_generate.append(layer_name)
 
-    # Collect Gemini layer images into outputs
+    # Generate layers in parallel with rate-limit retry
+    if layers_to_generate:
+        import time
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+
+        for name in layers_to_generate:
+            _emit({"type": "layer_start", "layer": name, "step": 2,
+                   "label": f"Generating {name}..."})
+
+        def _gen_with_retry(name, max_retries=3):
+            cfg = LAYERS[name]
+            out_img = output_dir / f"gemini_{name}.png"
+            print(f"\n  --- {name.upper()} ---")
+            for attempt in range(max_retries):
+                try:
+                    return generate_layer_image(
+                        img_bytes, name, cfg["prompt"], out_img,
+                        mime_type=mime_type,
+                    )
+                except Exception as exc:
+                    exc_str = str(exc).lower()
+                    if "429" in exc_str or "rate" in exc_str or "resource_exhausted" in exc_str:
+                        wait = 5 * (attempt + 1)
+                        print(f"  [{name}] Rate limited, waiting {wait}s (attempt {attempt + 1}/{max_retries})")
+                        time.sleep(wait)
+                    else:
+                        print(f"  [{name}] Generation failed: {exc}")
+                        return None
+            print(f"  [{name}] Failed after {max_retries} retries")
+            return None
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            futures = {
+                pool.submit(_gen_with_retry, name): name
+                for name in layers_to_generate
+            }
+            for future in as_completed(futures):
+                name = futures[future]
+                try:
+                    result = future.result()
+                except Exception as exc:
+                    print(f"  [{name}] Generation failed: {exc}")
+                    continue
+                if result:
+                    layer_images[name] = result
+                    _emit({"type": "layer_generation", "layer": name,
+                           "image_b64": _img_b64(result.read_bytes())})
+
+    # Collect generated layer images into outputs
     for layer_name, img_path in layer_images.items():
         outputs[f"gemini_{layer_name}.png"] = img_path.read_bytes()
 
-    # Step 3: Clean each Gemini layer image
+    # Step 3: Clean each generated layer image
     print(f"\n[3/5] Preprocessing layer images...")
+    _emit({"type": "step_start", "step": 3, "label": "Preprocessing layer images..."})
     masks: Dict[str, np.ndarray] = {}
 
     for layer_name, img_path in layer_images.items():
@@ -809,6 +869,9 @@ def run_pipeline(
         # Save cleaned layer mask
         mask_path = output_dir / f"layer_{layer_name}.png"
         cv2.imwrite(str(mask_path), ink_mask)
+        _, _png_buf = cv2.imencode(".png", ink_mask)
+        _emit({"type": "layer_preprocessing", "layer": layer_name,
+               "image_b64": _img_b64(_png_buf.tobytes())})
 
     # Step 3b: Clean door mask — subtract wall duplicates + remove stair artifacts.
     if "doors" in masks and "walls" in masks:
@@ -870,6 +933,10 @@ def run_pipeline(
 
         mask_path = output_dir / "layer_doors.png"
         cv2.imwrite(str(mask_path), skel_dilated)
+        _, _png_buf = cv2.imencode(".png", skel_dilated)
+        _emit({"type": "layer_preprocessing", "layer": "doors",
+               "image_b64": _img_b64(_png_buf.tobytes()),
+               "note": "wall-subtracted + skeletonized"})
 
     # Step 3c: Clean stairs mask — remove oversized components (room outlines).
     if "stairs" in masks:
@@ -893,6 +960,10 @@ def run_pipeline(
             print(f"  [stairs] Filtered: {stair_px_before} → {stair_px_after} px ({removed_stair} components removed)")
             masks["stairs"] = stair_mask
             cv2.imwrite(str(output_dir / "layer_stairs.png"), stair_mask)
+            _, _png_buf = cv2.imencode(".png", stair_mask)
+            _emit({"type": "layer_preprocessing", "layer": "stairs",
+                   "image_b64": _img_b64(_png_buf.tobytes()),
+                   "note": "size-filtered"})
 
     # Collect cleaned layer masks into outputs
     for layer_name in masks:
@@ -902,6 +973,7 @@ def run_pipeline(
 
     # Step 4: Vectorize all layers with potrace
     print(f"\n[4/5] Vectorizing layers with potrace...")
+    _emit({"type": "step_start", "step": 4, "label": "Vectorizing layers with potrace..."})
     layer_svgs: Dict[str, Optional[str]] = {}
     for layer_name in LAYER_ORDER:
         mask = masks.get(layer_name)
@@ -909,15 +981,23 @@ def run_pipeline(
             layer_svgs[layer_name] = None
             continue
         cfg = LAYERS[layer_name]
-        layer_svgs[layer_name] = vectorize_layer(
+        svg_content = vectorize_layer(
             mask, layer_name,
             alphamax=cfg["alphamax"],
             turdsize=cfg["turdsize"],
         )
+        layer_svgs[layer_name] = svg_content
+        if svg_content:
+            _transform, _paths = extract_paths_from_potrace_svg(svg_content)
+            _emit({"type": "layer_vectorized", "layer": layer_name,
+                   "svg_paths": _paths, "transform": _transform,
+                   "color": cfg["color"]})
 
     # Step 5: Compose layered SVG
     print(f"\n[5/5] Composing layered SVG...")
+    _emit({"type": "step_start", "step": 5, "label": "Composing final SVG..."})
     layered_svg = compose_layered_svg(layer_svgs, w, h)
+    _emit({"type": "composition_complete", "svg": layered_svg})
 
     stem = Path(filename).stem.replace(" ", "_")
     svg_filename = f"{stem}_layered.svg"
@@ -940,6 +1020,9 @@ def run_pipeline(
     print(f"  Layers: {', '.join(active)}")
     print(f"  Files:  {len(outputs)}")
     print("=" * 60)
+
+    _emit({"type": "pipeline_complete", "files": list(outputs.keys()),
+           "active_layers": active})
 
     return outputs
 

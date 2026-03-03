@@ -1,0 +1,1338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Floor Plan Vectorizer — Live Viewer</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{
+  font-family:'Segoe UI',system-ui,-apple-system,sans-serif;
+  background:#0f0f14;color:#e0e0e0;
+  overflow:hidden;height:100vh;
+}
+
+/* ── Header ── */
+#header{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:12px 24px;background:#16161d;
+  border-bottom:1px solid #2a2a35;height:56px;
+}
+.header-left{display:flex;align-items:center;gap:14px}
+#header h1{font-size:16px;font-weight:600;letter-spacing:-0.3px}
+.badge{
+  display:inline-block;padding:2px 10px;border-radius:12px;
+  font-size:12px;font-weight:500;
+}
+.badge.ready{background:#1a2a1a;color:#4ade80}
+.badge.running{background:#2a1a1a;color:#f97316;animation:pulse 1.5s infinite}
+.badge.done{background:#1a1a2a;color:#60a5fa}
+.badge.error{background:#2a1a1a;color:#ef4444}
+.header-right{display:flex;gap:10px;align-items:center}
+
+/* ── Buttons ── */
+.btn{
+  padding:8px 16px;border:1px solid rgba(255,255,255,.2);
+  border-radius:8px;background:rgba(255,255,255,.08);
+  color:#fff;cursor:pointer;font-size:13px;transition:all .2s;
+}
+.btn:hover{background:rgba(255,255,255,.15)}
+.btn:disabled{opacity:.35;cursor:not-allowed}
+.btn-primary{background:#2563eb;border-color:#3b82f6}
+.btn-primary:hover{background:#1d4ed8}
+.btn.ref-loaded{background:rgba(6,182,212,.2);border-color:#06b6d4;color:#06b6d4}
+
+/* ── Dropzone ── */
+#dropzone{
+  display:flex;align-items:center;justify-content:center;
+  height:calc(100vh - 56px);margin:24px;
+  border:2px dashed #2a2a35;border-radius:16px;transition:all .2s;
+}
+#dropzone.dragover{border-color:#2563eb;background:rgba(37,99,235,.05)}
+.dropzone-content{text-align:center;color:#666}
+.dropzone-content p{margin:8px 0}
+.dropzone-content .hint{font-size:13px;color:#555}
+.drop-icon{width:64px;height:64px;margin:0 auto 12px;opacity:.3}
+
+/* ── Workspace ── */
+#workspace{
+  display:grid;grid-template-columns:300px 1fr;
+  height:calc(100vh - 56px);
+}
+.hidden{display:none!important}
+
+/* ── Left Panel ── */
+#left-panel{
+  background:#16161d;border-right:1px solid #2a2a35;
+  display:flex;flex-direction:column;overflow:hidden;
+}
+#left-panel h2{
+  font-size:11px;text-transform:uppercase;letter-spacing:.8px;
+  color:#555;margin-bottom:8px;padding:0 16px;
+}
+#left-panel section{padding:12px 0;border-bottom:1px solid #2a2a35}
+
+/* ── Progress Steps ── */
+.step{
+  padding:7px 16px;margin-bottom:2px;
+  font-size:13px;display:flex;align-items:center;gap:8px;
+  border-left:3px solid transparent;transition:all .2s;
+}
+.step .icon{width:18px;text-align:center;font-size:14px;flex-shrink:0}
+.step.pending{opacity:.3}
+.step.active{background:rgba(37,99,235,.1);border-left-color:#2563eb;opacity:1}
+.step.complete{opacity:.7}
+.step.complete .icon::after{content:'\2713';color:#4ade80}
+.step.active .icon::after{content:'';display:inline-block;width:10px;height:10px;border:2px solid #2563eb;border-top-color:transparent;border-radius:50%;animation:spin .8s linear infinite}
+.step.pending .icon::after{content:'\2022';color:#444}
+
+.layer-substep{
+  padding:2px 16px 2px 42px;font-size:12px;color:#444;
+  display:flex;align-items:center;gap:8px;transition:color .2s;
+}
+.layer-substep.complete{color:#777}
+.layer-substep.active{color:#aaa}
+.layer-substep .dot{
+  width:7px;height:7px;border-radius:50%;flex-shrink:0;
+  transition:box-shadow .2s;
+}
+.layer-substep.complete .dot{box-shadow:0 0 6px currentColor}
+.layer-substep.active .dot{animation:pulse 1s infinite}
+
+#elapsed-time{
+  font-size:12px;color:#555;padding:8px 16px 0;
+}
+
+/* ── Layer Toggles ── */
+.layer-toggle{
+  display:flex;align-items:center;gap:10px;
+  padding:5px 16px;cursor:pointer;border-radius:6px;
+  font-size:13px;transition:background .15s;
+}
+.layer-toggle:hover{background:rgba(255,255,255,.05)}
+.layer-toggle input{display:none}
+.swatch{
+  width:14px;height:14px;border-radius:3px;
+  border:2px solid rgba(255,255,255,.15);transition:border-color .15s;
+}
+.layer-toggle input:checked+.swatch{border-color:#fff}
+
+/* ── Activity Log ── */
+#log-section{
+  flex:1;overflow:hidden;display:flex;flex-direction:column;
+  min-height:0;
+}
+#log-scroll{
+  flex:1;overflow-y:auto;padding:0 16px 8px;
+  font-family:'SF Mono','Fira Code',monospace;
+  font-size:11px;line-height:1.6;
+}
+#log-scroll::-webkit-scrollbar{width:4px}
+#log-scroll::-webkit-scrollbar-track{background:transparent}
+#log-scroll::-webkit-scrollbar-thumb{background:#333;border-radius:2px}
+.log-line{color:#555}
+.log-line.info{color:#888}
+.log-line.success{color:#4ade80}
+.log-line.layer{color:#60a5fa}
+.log-line.warn{color:#f97316}
+.log-line.error{color:#ef4444}
+.log-line .ts{color:#444;margin-right:6px}
+
+/* ── Main Content ── */
+#main-content{
+  display:flex;flex-direction:column;overflow:hidden;
+}
+
+/* ── Hero Stage ── */
+#hero-stage{
+  flex:1;display:flex;align-items:center;justify-content:center;
+  padding:16px 16px 0;min-height:0;position:relative;
+}
+#stage-container{
+  position:relative;
+  max-width:100%;max-height:100%;
+  background:#fff;border-radius:8px;
+  box-shadow:0 4px 24px rgba(0,0,0,.5);
+  overflow:hidden;
+  display:flex;align-items:center;justify-content:center;
+  transition:background .3s;
+}
+#stage-container.has-reference{background:#fff}
+
+/* Crossfade image layers */
+.stage-img{
+  display:block;
+  max-width:100%;max-height:100%;
+  position:absolute;top:0;left:0;
+  width:100%;height:100%;
+  object-fit:contain;
+  transition:opacity 0.6s ease;
+}
+.stage-img.behind{z-index:1}
+.stage-img.front{z-index:2}
+.stage-img.original{opacity:.3}
+
+/* Reference image background */
+#stage-reference{
+  position:absolute;top:0;left:0;
+  width:100%;height:100%;
+  z-index:2;
+  object-fit:contain;
+  pointer-events:none;
+  opacity:.45;
+  filter:contrast(.5) brightness(1.6);
+}
+
+/* SVG canvas on stage */
+#stage-svg-canvas{
+  position:absolute;top:0;left:0;
+  width:100%;height:100%;
+  z-index:3;
+}
+#stage-svg-canvas svg{
+  display:block;width:100%;height:100%;
+}
+
+/* Stage label pill */
+#stage-label{
+  position:absolute;bottom:60px;left:50%;transform:translateX(-50%);
+  z-index:10;
+  background:rgba(0,0,0,.75);
+  padding:6px 16px;border-radius:20px;
+  font-size:12px;color:#ccc;
+  backdrop-filter:blur(10px);
+  transition:opacity 0.3s ease;
+  white-space:nowrap;
+  pointer-events:none;
+}
+#stage-label.hidden{opacity:0}
+
+/* Placeholder text */
+.stage-placeholder{
+  color:#444;font-size:14px;padding:60px 40px;text-align:center;
+}
+
+/* ── Timeline Slider ── */
+#timeline-bar{
+  height:48px;min-height:48px;
+  display:flex;align-items:center;gap:14px;
+  padding:0 20px;
+  background:#16161d;
+  border-top:1px solid #2a2a35;
+}
+#timeline-slider{
+  flex:1;
+  -webkit-appearance:none;appearance:none;
+  height:4px;
+  background:rgba(255,255,255,.12);
+  border-radius:2px;
+  outline:none;
+  cursor:pointer;
+}
+#timeline-slider::-webkit-slider-thumb{
+  -webkit-appearance:none;
+  width:14px;height:14px;
+  background:#fff;border-radius:50%;
+  cursor:grab;
+  box-shadow:0 0 6px rgba(0,0,0,.4);
+  transition:transform .1s;
+}
+#timeline-slider::-webkit-slider-thumb:active{
+  transform:scale(1.3);cursor:grabbing;
+}
+#timeline-slider::-moz-range-thumb{
+  width:14px;height:14px;
+  background:#fff;border:none;border-radius:50%;
+  cursor:grab;
+}
+#timeline-counter{
+  font-size:11px;color:#555;
+  min-width:50px;text-align:right;
+  font-variant-numeric:tabular-nums;
+}
+#timeline-label{
+  font-size:11px;color:#999;
+  white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;
+  max-width:200px;
+}
+
+/* ── Responsive ── */
+@media(max-width:768px){
+  #workspace{grid-template-columns:1fr}
+  #left-panel{display:none}
+}
+
+/* ── Animations ── */
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<header id="header">
+  <div class="header-left">
+    <h1>Floor Plan Vectorizer</h1>
+    <span id="status-badge" class="badge ready">Ready</span>
+  </div>
+  <div class="header-right">
+    <label id="ref-upload-btn" class="btn">
+      Upload Reference
+      <input type="file" id="ref-file-input" accept="image/png,image/jpeg" hidden>
+    </label>
+    <label id="upload-btn" class="btn btn-primary">
+      Upload Floor Plan
+      <input type="file" id="file-input" accept="image/png,image/jpeg" hidden>
+    </label>
+    <a id="download-btn" class="btn hidden" href="/download" download>Download ZIP</a>
+    <button id="reset-btn" class="btn" disabled>Reset</button>
+  </div>
+</header>
+
+<!-- Upload Dropzone -->
+<div id="dropzone">
+  <div class="dropzone-content">
+    <svg class="drop-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+      <path d="M12 16V4m0 0L8 8m4-4l4 4"/>
+      <path d="M2 17l.621 2.485A2 2 0 004.561 21h14.878a2 2 0 001.94-1.515L22 17"/>
+    </svg>
+    <p>Drop a floor plan image here</p>
+    <p class="hint">PNG or JPEG, max 20 MB</p>
+  </div>
+</div>
+
+<!-- Workspace (hidden until upload) -->
+<div id="workspace" class="hidden">
+  <!-- Left Panel -->
+  <aside id="left-panel">
+    <section>
+      <h2>Pipeline Progress</h2>
+      <div id="progress-steps"></div>
+      <div id="elapsed-time"></div>
+    </section>
+    <section id="layer-section" class="hidden">
+      <h2>Layer Visibility</h2>
+      <div id="layer-toggles"></div>
+    </section>
+    <section id="log-section">
+      <h2>Activity Log</h2>
+      <div id="log-scroll"></div>
+    </section>
+  </aside>
+
+  <!-- Main Content -->
+  <main id="main-content">
+    <section id="hero-stage">
+      <div id="stage-container">
+        <div class="stage-placeholder">Waiting for vectorization...</div>
+      </div>
+      <div id="stage-label" class="hidden"></div>
+    </section>
+    <div id="timeline-bar" class="hidden">
+      <span id="timeline-label"></span>
+      <input type="range" id="timeline-slider" min="0" max="0" value="0" step="1">
+      <span id="timeline-counter"></span>
+    </div>
+  </main>
+</div>
+
+<script>
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
+// ── Constants ──
+const LAYER_COLORS = {
+  walls:'#1a1a1a', doors:'#2563eb', windows:'#06b6d4',
+  stairs:'#7c3aed', furniture:'#84cc16',
+};
+const LAYER_ORDER = ['walls','doors','windows','stairs','furniture'];
+const STEP_LABELS = [
+  'Element Detection',
+  'Layer Generation',
+  'Image Preprocessing',
+  'Potrace Vectorization',
+  'SVG Composition',
+];
+
+// ── State ──
+const state = {
+  running: false,
+  startTime: null,
+  timerInterval: null,
+  detectedLayers: {},
+  layerVisibility: {},
+  layerPaths: {},
+  svgWidth: 0,
+  svgHeight: 0,
+  uploadedFileUrl: null,
+  referenceImageUrl: null,
+  // Stage crossfade
+  stageFront: null,
+  stageBack: null,
+  svgCanvasActive: false,
+  // Drawing queue
+  drawQueue: [],
+  isDrawing: false,
+  drawTimeouts: [],
+  pendingComposition: null,
+  // Timeline
+  timeline: [],       // [{type,src,label,layers,svg}]
+  timelineLive: true, // auto-advance with pipeline
+  drawnLayerNames: [], // layers that finished drawing so far
+};
+
+// ── DOM ──
+const $ = (id) => document.getElementById(id);
+const $dropzone   = $('dropzone');
+const $workspace  = $('workspace');
+const $fileInput  = $('file-input');
+const $badge      = $('status-badge');
+const $stage      = $('hero-stage');
+const $stageCont  = $('stage-container');
+const $stageLabel = $('stage-label');
+const $progress   = $('progress-steps');
+const $layerSect  = $('layer-section');
+const $toggles    = $('layer-toggles');
+const $elapsed    = $('elapsed-time');
+const $resetBtn   = $('reset-btn');
+const $downloadBtn= $('download-btn');
+const $uploadBtn  = $('upload-btn');
+const $refInput   = $('ref-file-input');
+const $refBtn     = $('ref-upload-btn');
+const $log        = $('log-scroll');
+const $tlBar      = $('timeline-bar');
+const $tlSlider   = $('timeline-slider');
+const $tlLabel    = $('timeline-label');
+const $tlCounter  = $('timeline-counter');
+
+// ── Activity Log ──
+function log(msg, cls = '') {
+  const sec = state.startTime ? ((Date.now() - state.startTime) / 1000).toFixed(1) : '0.0';
+  const line = document.createElement('div');
+  line.className = `log-line ${cls}`;
+  line.innerHTML = `<span class="ts">${sec}s</span>${msg}`;
+  $log.appendChild(line);
+  $log.scrollTop = $log.scrollHeight;
+}
+
+// ── Stage Label ──
+function setStageLabel(text) {
+  if (!text) { $stageLabel.classList.add('hidden'); return; }
+  $stageLabel.textContent = text;
+  $stageLabel.classList.remove('hidden');
+}
+
+// ── Timeline ──
+function addTimelineEntry(entry) {
+  state.timeline.push(entry);
+  const idx = state.timeline.length - 1;
+  $tlBar.classList.remove('hidden');
+  $tlSlider.max = idx;
+  if (state.timelineLive) {
+    $tlSlider.value = idx;
+    $tlLabel.textContent = entry.label;
+    $tlCounter.textContent = `${idx + 1} / ${idx + 1}`;
+  } else {
+    $tlCounter.textContent = `${+$tlSlider.value + 1} / ${idx + 1}`;
+  }
+}
+
+function showTimelineAt(idx) {
+  const entry = state.timeline[idx];
+  if (!entry) return;
+
+  $tlLabel.textContent = entry.label;
+  $tlCounter.textContent = `${idx + 1} / ${state.timeline.length}`;
+  setStageLabel(entry.label);
+
+  if (entry.type === 'image') {
+    hideSvgCanvas();
+    showImageDirect(entry.src);
+  } else if (entry.type === 'drawing') {
+    hideImages();
+    showStaticLayers(entry.layers);
+  } else if (entry.type === 'final') {
+    hideImages();
+    showFinalSvg(entry.svg);
+  }
+}
+
+function showImageDirect(src) {
+  // Instantly display image (no crossfade) for scrubbing
+  let img = $stageCont.querySelector('.scrub-img');
+  if (!img) {
+    img = document.createElement('img');
+    img.className = 'scrub-img';
+    img.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;object-fit:contain;z-index:5;';
+    $stageCont.appendChild(img);
+  }
+  img.src = src;
+  img.style.display = '';
+  // Hide crossfade images and reference (reference only shows behind SVG)
+  if (state.stageFront) state.stageFront.style.opacity = '0';
+  if (state.stageBack) state.stageBack.style.opacity = '0';
+  hideReferenceImage();
+}
+
+function hideImages() {
+  const scrub = $stageCont.querySelector('.scrub-img');
+  if (scrub) scrub.style.display = 'none';
+  if (state.stageFront) state.stageFront.style.opacity = '0';
+  if (state.stageBack) state.stageBack.style.opacity = '0';
+  // When images are hidden, we're showing SVG — show reference underneath
+  if (state.referenceImageUrl) showReferenceImage();
+}
+
+function hideSvgCanvas() {
+  const c = $stageCont.querySelector('#stage-svg-canvas');
+  if (c) c.style.display = 'none';
+}
+
+function showStaticLayers(layerNames) {
+  // Build a static (fully drawn) SVG from state.layerPaths
+  let canvas = $stageCont.querySelector('#stage-svg-canvas');
+  if (canvas) canvas.remove();
+
+  canvas = document.createElement('div');
+  canvas.id = 'stage-svg-canvas';
+  canvas.style.opacity = '1';
+  $stageCont.appendChild(canvas);
+
+  const svg = document.createElementNS(SVG_NS, 'svg');
+  svg.setAttribute('viewBox', `0 0 ${state.svgWidth} ${state.svgHeight}`);
+  svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+  const bg = document.createElementNS(SVG_NS, 'rect');
+  bg.setAttribute('fill', state.referenceImageUrl ? 'transparent' : '#fff');
+  bg.setAttribute('width', '100%');
+  bg.setAttribute('height', '100%');
+  svg.appendChild(bg);
+
+  // Show reference image underneath if available
+  if (state.referenceImageUrl) showReferenceImage();
+
+  let sharedTransform = null;
+  for (const n of layerNames) {
+    const lp = state.layerPaths[n];
+    if (lp && lp.transform) { sharedTransform = lp.transform; break; }
+  }
+  let wrapper = svg;
+  if (sharedTransform) {
+    const g = document.createElementNS(SVG_NS, 'g');
+    g.setAttribute('transform', sharedTransform);
+    svg.appendChild(g);
+    wrapper = g;
+  }
+
+  for (const name of layerNames) {
+    const lp = state.layerPaths[name];
+    if (!lp) continue;
+    const g = document.createElementNS(SVG_NS, 'g');
+    g.id = `layer-${name}`;
+    g.classList.add('layer-group');
+    g.setAttribute('fill', lp.color);
+    g.setAttribute('stroke', 'none');
+    const tmp = document.createElementNS(SVG_NS, 'svg');
+    tmp.innerHTML = lp.paths;
+    while (tmp.firstChild) g.appendChild(tmp.firstChild);
+    wrapper.appendChild(g);
+  }
+
+  canvas.appendChild(svg);
+  // Hide scrub image
+  const scrub = $stageCont.querySelector('.scrub-img');
+  if (scrub) scrub.style.display = 'none';
+}
+
+function showFinalSvg(svgString) {
+  let canvas = $stageCont.querySelector('#stage-svg-canvas');
+  if (canvas) canvas.remove();
+  canvas = document.createElement('div');
+  canvas.id = 'stage-svg-canvas';
+  canvas.style.opacity = '1';
+  canvas.innerHTML = svgString;
+  $stageCont.appendChild(canvas);
+  const svg = canvas.querySelector('svg');
+  if (svg) {
+    svg.style.width = '100%'; svg.style.height = '100%'; svg.style.display = 'block';
+    // Make SVG background transparent when reference is present
+    if (state.referenceImageUrl) {
+      svg.style.background = 'transparent';
+      const bgRect = svg.querySelector('rect[fill="#ffffff"], rect[fill="white"], rect[fill="#fff"]');
+      if (bgRect) bgRect.setAttribute('fill', 'transparent');
+    }
+  }
+  const scrub = $stageCont.querySelector('.scrub-img');
+  if (scrub) scrub.style.display = 'none';
+  // Show reference underneath
+  if (state.referenceImageUrl) showReferenceImage();
+  applyVisibility();
+}
+
+// Slider interaction
+$tlSlider.addEventListener('input', () => {
+  const idx = +$tlSlider.value;
+  const isAtEnd = idx === state.timeline.length - 1;
+
+  if (!isAtEnd && state.timelineLive) {
+    // User scrubbed away from live — cancel animations
+    cancelDrawing();
+  }
+  state.timelineLive = isAtEnd;
+  showTimelineAt(idx);
+});
+
+function cancelDrawing() {
+  state.drawTimeouts.forEach(id => clearTimeout(id));
+  state.drawTimeouts = [];
+  state.isDrawing = false;
+  state.drawQueue = [];
+}
+
+// Resume live mode: restore the latest visual state
+function resumeLive() {
+  state.timelineLive = true;
+  // The latest entry is already shown via showTimelineAt
+}
+
+// ── Hero Stage: Crossfade ──
+function initStage(originalSrc) {
+  $stageCont.innerHTML = '';
+
+  const imgA = document.createElement('img');
+  imgA.className = 'stage-img front original';
+  imgA.src = originalSrc;
+  imgA.alt = 'Original floor plan';
+
+  const imgB = document.createElement('img');
+  imgB.className = 'stage-img behind';
+  imgB.style.opacity = '0';
+  imgB.alt = '';
+
+  $stageCont.appendChild(imgB);
+  $stageCont.appendChild(imgA);
+
+  state.stageFront = imgA;
+  state.stageBack = imgB;
+  state.svgCanvasActive = false;
+
+  imgA.onload = () => {
+    const maxW = $stage.clientWidth - 32;
+    const maxH = $stage.clientHeight - 80;
+    const ratio = Math.min(maxW / imgA.naturalWidth, maxH / imgA.naturalHeight, 1);
+    const w = Math.round(imgA.naturalWidth * ratio);
+    const h = Math.round(imgA.naturalHeight * ratio);
+    $stageCont.style.width = w + 'px';
+    $stageCont.style.height = h + 'px';
+  };
+
+  setStageLabel('Original floor plan');
+}
+
+function showOnStage(src, label) {
+  if (!state.stageBack || !state.stageFront) return;
+
+  // Hide scrub image, SVG canvas, and reference (reference only shows behind SVG)
+  const scrub = $stageCont.querySelector('.scrub-img');
+  if (scrub) scrub.style.display = 'none';
+  const svgCanvas = $stageCont.querySelector('#stage-svg-canvas');
+  if (svgCanvas) svgCanvas.style.opacity = '0';
+  hideReferenceImage();
+
+  const back = state.stageBack;
+  const front = state.stageFront;
+
+  back.src = src;
+  back.alt = label;
+  back.classList.remove('original');
+
+  back.onload = () => {
+    back.style.opacity = '1';
+    front.style.opacity = '0';
+
+    setTimeout(() => {
+      front.classList.remove('front');
+      front.classList.add('behind');
+      back.classList.remove('behind');
+      back.classList.add('front');
+      state.stageFront = back;
+      state.stageBack = front;
+    }, 650);
+  };
+
+  setStageLabel(label);
+}
+
+// ── Reference Image Layer ──
+function injectReferenceImage() {
+  if (!state.referenceImageUrl) return;
+  let refImg = $stageCont.querySelector('#stage-reference');
+  if (!refImg) {
+    refImg = document.createElement('img');
+    refImg.id = 'stage-reference';
+    refImg.alt = 'Point cloud reference';
+    $stageCont.appendChild(refImg);
+  }
+  refImg.src = state.referenceImageUrl;
+  refImg.style.display = '';
+  $stageCont.classList.add('has-reference');
+}
+
+function hideReferenceImage() {
+  const refImg = $stageCont.querySelector('#stage-reference');
+  if (refImg) refImg.style.display = 'none';
+}
+
+function showReferenceImage() {
+  const refImg = $stageCont.querySelector('#stage-reference');
+  if (refImg) refImg.style.display = '';
+  else injectReferenceImage();
+}
+
+// ── SVG Drawing Canvas ──
+function ensureSvgCanvas() {
+  let canvas = $stageCont.querySelector('#stage-svg-canvas');
+  if (!canvas) {
+    canvas = document.createElement('div');
+    canvas.id = 'stage-svg-canvas';
+    $stageCont.appendChild(canvas);
+
+    const svg = document.createElementNS(SVG_NS, 'svg');
+    svg.setAttribute('xmlns', SVG_NS);
+    svg.setAttribute('viewBox', `0 0 ${state.svgWidth} ${state.svgHeight}`);
+    svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+
+    // Defs for clip-paths
+    const defs = document.createElementNS(SVG_NS, 'defs');
+    svg.appendChild(defs);
+
+    const bg = document.createElementNS(SVG_NS, 'rect');
+    bg.id = 'svg-bg-rect';
+    bg.setAttribute('fill', state.referenceImageUrl ? 'transparent' : '#fff');
+    bg.setAttribute('width', '100%');
+    bg.setAttribute('height', '100%');
+    svg.appendChild(bg);
+    canvas.appendChild(svg);
+  }
+
+  // Update bg transparency based on current reference state
+  const bgRect = canvas.querySelector('#svg-bg-rect');
+  if (bgRect) bgRect.setAttribute('fill', state.referenceImageUrl ? 'transparent' : '#fff');
+
+  canvas.style.display = '';
+  canvas.style.transition = 'opacity 0.6s ease';
+  canvas.style.opacity = '1';
+
+  // Hide scrub image and crossfade images
+  const scrub = $stageCont.querySelector('.scrub-img');
+  if (scrub) scrub.style.display = 'none';
+  if (state.stageFront) state.stageFront.style.opacity = '0';
+  if (state.stageBack) state.stageBack.style.opacity = '0';
+
+  // Show reference image underneath if available
+  if (state.referenceImageUrl) showReferenceImage();
+
+  state.svgCanvasActive = true;
+  return canvas.querySelector('svg');
+}
+
+// ── Drawing Queue ──
+function processDrawQueue() {
+  if (state.isDrawing) return;
+  if (!state.timelineLive) return;
+
+  if (state.drawQueue.length > 0) {
+    state.isDrawing = true;
+    const d = state.drawQueue.shift();
+    setStageLabel(`Drawing: ${d.layer}`);
+
+    const wasActive = state.svgCanvasActive;
+    ensureSvgCanvas();
+
+    const startDelay = wasActive ? 200 : 900;
+    const tid = setTimeout(() => {
+      animateLayerPaths(d.layer, d.svg_paths, d.transform, d.color).then(() => {
+        state.drawnLayerNames.push(d.layer);
+        state.isDrawing = false;
+        processDrawQueue();
+      });
+    }, startDelay);
+    state.drawTimeouts.push(tid);
+  } else if (state.pendingComposition) {
+    const tid = setTimeout(() => {
+      applyComposition(state.pendingComposition);
+      state.pendingComposition = null;
+    }, 600);
+    state.drawTimeouts.push(tid);
+  }
+}
+
+// ── Path Animation (progressive fill via clipPath + thick stroke) ──
+function animateLayerPaths(layerName, pathsHtml, transform, color) {
+  return new Promise((resolve) => {
+    const svg = ensureSvgCanvas();
+    const defs = svg.querySelector('defs');
+
+    let wrapper = svg.querySelector('#transform-wrapper');
+    if (!wrapper && transform) {
+      wrapper = document.createElementNS(SVG_NS, 'g');
+      wrapper.id = 'transform-wrapper';
+      wrapper.setAttribute('transform', transform);
+      svg.appendChild(wrapper);
+    }
+    const parent = wrapper || svg;
+
+    const g = document.createElementNS(SVG_NS, 'g');
+    g.classList.add('layer-group');
+    g.id = `layer-${layerName}`;
+    if (state.layerVisibility[layerName] === false) g.style.display = 'none';
+    parent.appendChild(g);
+
+    const tmp = document.createElementNS(SVG_NS, 'svg');
+    tmp.innerHTML = pathsHtml;
+    const pathElements = Array.from(tmp.querySelectorAll('path'));
+
+    // ── Timing ──
+    const LAYER_BUDGET_MS = 7000;
+    const MIN_DRAW_MS = 2000;
+    const MAX_DRAW_MS = 3500;
+
+    const n = pathElements.length;
+    if (n === 0) { resolve(); return; }
+
+    // Measure all paths
+    const pathData = [];
+    pathElements.forEach((origPath, i) => {
+      const d = origPath.getAttribute('d');
+      // Invisible measuring probe
+      const probe = document.createElementNS(SVG_NS, 'path');
+      probe.setAttribute('d', d);
+      probe.style.visibility = 'hidden';
+      g.appendChild(probe);
+      let len = 0;
+      try { len = probe.getTotalLength(); } catch(e) {}
+      probe.remove();
+      pathData.push({ d, length: len, idx: i });
+    });
+
+    // Sort longest first
+    pathData.sort((a, b) => b.length - a.length);
+    const totalLength = pathData.reduce((sum, pd) => sum + pd.length, 0);
+    const stagger = Math.max(200, LAYER_BUDGET_MS / Math.max(n, 1));
+
+    let lastEndTime = 0;
+
+    pathData.forEach((pd, i) => {
+      const len = pd.length;
+      const pathD = pd.d;
+
+      let drawMs;
+      if (totalLength > 0 && len > 0) {
+        drawMs = Math.max(MIN_DRAW_MS, Math.min(MAX_DRAW_MS,
+          (len / totalLength) * LAYER_BUDGET_MS * 2.5));
+      } else {
+        drawMs = MIN_DRAW_MS;
+      }
+
+      const delay = i * stagger;
+      const endTime = delay + drawMs + 100;
+      if (endTime > lastEndTime) lastEndTime = endTime;
+
+      const tid = setTimeout(() => {
+        if (len < 20) {
+          // Tiny path: just show filled immediately
+          const p = document.createElementNS(SVG_NS, 'path');
+          p.setAttribute('d', pathD);
+          p.setAttribute('fill', color);
+          p.setAttribute('stroke', 'none');
+          g.appendChild(p);
+          return;
+        }
+
+        // 1. Create clipPath from the path shape (clips the thick stroke to fill area)
+        const clipId = `cp-${layerName}-${pd.idx}`;
+        const clipPath = document.createElementNS(SVG_NS, 'clipPath');
+        clipPath.id = clipId;
+        const clipShape = document.createElementNS(SVG_NS, 'path');
+        clipShape.setAttribute('d', pathD);
+        clipPath.appendChild(clipShape);
+        defs.appendChild(clipPath);
+
+        // 2. Wrapper <g> with clip — thick stroke inside gets clipped to fill area
+        const clipG = document.createElementNS(SVG_NS, 'g');
+        clipG.setAttribute('clip-path', `url(#${clipId})`);
+
+        // 3. Thick stroke path (fill revealed progressively as stroke draws)
+        const fillPath = document.createElementNS(SVG_NS, 'path');
+        fillPath.setAttribute('d', pathD);
+        fillPath.setAttribute('fill', 'none');
+        fillPath.setAttribute('stroke', color);
+        // Stroke wide enough to cover interior
+        const bbox = { w: 0, h: 0 };
+        try {
+          const probe = document.createElementNS(SVG_NS, 'path');
+          probe.setAttribute('d', pathD);
+          probe.style.visibility = 'hidden';
+          g.appendChild(probe);
+          const b = probe.getBBox();
+          bbox.w = b.width; bbox.h = b.height;
+          probe.remove();
+        } catch(e) {}
+        const sw = Math.max(80, bbox.w, bbox.h);
+        fillPath.setAttribute('stroke-width', sw);
+        fillPath.setAttribute('stroke-linecap', 'round');
+        fillPath.setAttribute('stroke-linejoin', 'round');
+        fillPath.setAttribute('stroke-dasharray', len);
+        fillPath.setAttribute('stroke-dashoffset', len);
+        clipG.appendChild(fillPath);
+
+        // 4. Thin pen outline (draws alongside, not clipped)
+        const penPath = document.createElementNS(SVG_NS, 'path');
+        penPath.setAttribute('d', pathD);
+        penPath.setAttribute('fill', 'none');
+        penPath.setAttribute('stroke', color);
+        penPath.setAttribute('stroke-width', '1.5');
+        penPath.setAttribute('stroke-linecap', 'round');
+        penPath.setAttribute('stroke-linejoin', 'round');
+        penPath.setAttribute('stroke-dasharray', len);
+        penPath.setAttribute('stroke-dashoffset', len);
+
+        g.appendChild(clipG);
+        g.appendChild(penPath);
+
+        // 5. Animate both in sync
+        const transition = `stroke-dashoffset ${drawMs}ms cubic-bezier(0.4, 0, 0.2, 1)`;
+        fillPath.getBoundingClientRect();
+        fillPath.style.transition = transition;
+        penPath.style.transition = transition;
+        fillPath.setAttribute('stroke-dashoffset', '0');
+        penPath.setAttribute('stroke-dashoffset', '0');
+
+        // 6. After animation: clean up → single filled path
+        const cleanTid = setTimeout(() => {
+          clipG.remove();
+          penPath.remove();
+          clipPath.remove();
+          const clean = document.createElementNS(SVG_NS, 'path');
+          clean.setAttribute('d', pathD);
+          clean.setAttribute('fill', color);
+          clean.setAttribute('stroke', 'none');
+          g.appendChild(clean);
+        }, drawMs + 80);
+        state.drawTimeouts.push(cleanTid);
+      }, delay);
+      state.drawTimeouts.push(tid);
+    });
+
+    const resolveTid = setTimeout(resolve, lastEndTime + 150);
+    state.drawTimeouts.push(resolveTid);
+  });
+}
+
+// ── File Upload ──
+$fileInput.addEventListener('change', (e) => {
+  if (e.target.files[0]) startPipeline(e.target.files[0]);
+});
+
+// ── Reference Image Upload ──
+$refInput.addEventListener('change', (e) => {
+  const f = e.target.files[0];
+  if (!f) return;
+  if (state.referenceImageUrl) URL.revokeObjectURL(state.referenceImageUrl);
+  state.referenceImageUrl = URL.createObjectURL(f);
+  $refBtn.classList.add('ref-loaded');
+  // Update button text (keep the hidden input intact)
+  const textNode = Array.from($refBtn.childNodes).find(n => n.nodeType === 3);
+  if (textNode) textNode.textContent = 'Reference \u2713 ';
+  log('Reference image loaded', 'info');
+  // If SVG canvas is already visible, inject reference now
+  injectReferenceImage();
+});
+
+$dropzone.addEventListener('dragover', (e) => {
+  e.preventDefault();
+  $dropzone.classList.add('dragover');
+});
+$dropzone.addEventListener('dragleave', () => $dropzone.classList.remove('dragover'));
+$dropzone.addEventListener('drop', (e) => {
+  e.preventDefault();
+  $dropzone.classList.remove('dragover');
+  const f = e.dataTransfer.files[0];
+  if (f && /^image\/(png|jpeg)$/.test(f.type)) startPipeline(f);
+});
+
+$resetBtn.addEventListener('click', resetUI);
+
+// ── Pipeline ──
+async function startPipeline(file) {
+  state.running = true;
+  state.startTime = Date.now();
+  state.layerPaths = {};
+  state.detectedLayers = {};
+  state.layerVisibility = {};
+  state.drawQueue = [];
+  state.isDrawing = false;
+  state.drawTimeouts = [];
+  state.pendingComposition = null;
+  state.timeline = [];
+  state.timelineLive = true;
+  state.drawnLayerNames = [];
+
+  if (state.uploadedFileUrl) URL.revokeObjectURL(state.uploadedFileUrl);
+  state.uploadedFileUrl = URL.createObjectURL(file);
+
+  $dropzone.classList.add('hidden');
+  $workspace.classList.remove('hidden');
+  $resetBtn.disabled = true;
+  $uploadBtn.classList.add('hidden');
+  $downloadBtn.classList.add('hidden');
+  setBadge('running', 'Processing...');
+  initProgress();
+  $log.innerHTML = '';
+  $layerSect.classList.add('hidden');
+  $tlBar.classList.add('hidden');
+  $tlSlider.value = 0;
+  $tlSlider.max = 0;
+
+  initStage(state.uploadedFileUrl);
+  addTimelineEntry({ type: 'image', src: state.uploadedFileUrl, label: 'Original' });
+
+  state.timerInterval = setInterval(() => {
+    $elapsed.textContent = `${((Date.now() - state.startTime) / 1000)|0}s`;
+  }, 500);
+
+  log(`Uploading ${file.name} (${(file.size/1024).toFixed(0)} KB)`, 'info');
+
+  const form = new FormData();
+  form.append('file', file);
+
+  try {
+    const res = await fetch('/vectorize/stream', { method: 'POST', body: form });
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`Server error ${res.status}: ${text}`);
+    }
+    log('Connected to pipeline stream', 'success');
+    readSSEStream(res);
+  } catch (err) {
+    setBadge('error', 'Error');
+    log(`Error: ${err.message}`, 'error');
+    console.error('Pipeline error:', err);
+    clearInterval(state.timerInterval);
+    state.running = false;
+    $resetBtn.disabled = false;
+    $uploadBtn.classList.remove('hidden');
+    setStageLabel('');
+  }
+}
+
+// ── SSE Stream Reader ──
+async function readSSEStream(response) {
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buf = '';
+  let eventType = '';
+  let dataLines = [];
+
+  function dispatch() {
+    if (eventType && dataLines.length) {
+      const raw = dataLines.join('\n');
+      try { handleEvent(eventType, JSON.parse(raw)); }
+      catch (e) { console.warn('SSE parse error:', e, 'event:', eventType, 'data:', raw.substring(0, 200)); }
+    }
+    eventType = '';
+    dataLines = [];
+  }
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      let nlIdx;
+      while ((nlIdx = buf.indexOf('\n')) !== -1) {
+        const line = buf.slice(0, nlIdx).replace(/\r$/, '');
+        buf = buf.slice(nlIdx + 1);
+        if (line === '') dispatch();
+        else if (line.startsWith(':')) {}
+        else if (line.startsWith('event:')) eventType = line.slice(6).trim();
+        else if (line.startsWith('data:')) dataLines.push(line.slice(5).trimStart());
+      }
+    }
+    dispatch();
+    if (state.running) log('Stream ended', 'info');
+  } catch (err) {
+    if (err.name !== 'AbortError') {
+      log(`Stream error: ${err.message}`, 'error');
+      console.error('Stream read error:', err);
+    }
+  } finally {
+    clearInterval(state.timerInterval);
+    state.running = false;
+    $resetBtn.disabled = false;
+    $uploadBtn.classList.remove('hidden');
+  }
+}
+
+// ── Event Router ──
+function handleEvent(type, data) {
+  console.log('SSE event:', type, type === 'layer_generation' || type === 'layer_preprocessing' ? `(${data.layer})` : '');
+  switch (type) {
+    case 'pipeline_start':       onPipelineStart(data); break;
+    case 'step_start':           onStepStart(data); break;
+    case 'element_detection':    onElementDetection(data); break;
+    case 'layer_start':          onLayerStart(data); break;
+    case 'layer_generation':     onLayerGeneration(data); break;
+    case 'layer_preprocessing':  onLayerPreprocessing(data); break;
+    case 'layer_vectorized':     onLayerVectorized(data); break;
+    case 'composition_complete': onCompositionComplete(data); break;
+    case 'pipeline_complete':    onPipelineComplete(data); break;
+    case 'pipeline_error':       onPipelineError(data); break;
+  }
+}
+
+// ── Event Handlers ──
+function onPipelineStart(d) {
+  setStep(0, 'active');
+  state.svgWidth = d.width;
+  state.svgHeight = d.height;
+  log(`Image decoded: ${d.width} x ${d.height}`, 'info');
+  setStageLabel('Detecting elements...');
+}
+
+function onStepStart(d) {
+  const idx = d.step - 1;
+  if (idx >= 0 && idx < 5) setStep(idx, 'active');
+  log(d.label, 'info');
+  if (state.timelineLive) setStageLabel(d.label);
+}
+
+function onElementDetection(d) {
+  setStep(0, 'complete');
+  setStep(1, 'active');
+  state.detectedLayers = d.layers;
+
+  const present = LAYER_ORDER.filter(n => d.layers[n]);
+  const absent = LAYER_ORDER.filter(n => !d.layers[n]);
+  log(`Detected layers: <b>${present.join(', ')}</b>`, 'success');
+  if (absent.length) log(`Not found: ${absent.join(', ')}`, '');
+
+  buildSubSteps(1, present);
+  buildSubSteps(2, present);
+  buildSubSteps(3, present);
+  buildToggles(present);
+  $layerSect.classList.remove('hidden');
+}
+
+function onLayerStart(d) {
+  log(`Generating <b style="color:${LAYER_COLORS[d.layer]}">${d.layer}</b>...`, 'layer');
+  markSubStep(1, d.layer, false, true);
+  if (state.timelineLive) setStageLabel(`Generating ${d.layer}...`);
+}
+
+function onLayerGeneration(d) {
+  markSubStep(1, d.layer, true);
+  const src = `data:image/png;base64,${d.image_b64}`;
+  addTimelineEntry({ type: 'image', src, label: `Generated: ${d.layer}` });
+  if (state.timelineLive) showOnStage(src, `Generated: ${d.layer}`);
+  log(`<b style="color:${LAYER_COLORS[d.layer]}">${d.layer}</b> image received`, 'success');
+}
+
+function onLayerPreprocessing(d) {
+  setStep(1, 'complete');
+  setStep(2, 'active');
+  markSubStep(2, d.layer, true);
+  const note = d.note ? ` (${d.note})` : '';
+  const src = `data:image/png;base64,${d.image_b64}`;
+  addTimelineEntry({ type: 'image', src, label: `Mask: ${d.layer}${note}` });
+  if (state.timelineLive) showOnStage(src, `Mask: ${d.layer}${note}`);
+  log(`<b style="color:${LAYER_COLORS[d.layer]}">${d.layer}</b> mask cleaned${note}`, 'info');
+}
+
+function onLayerVectorized(d) {
+  setStep(2, 'complete');
+  setStep(3, 'active');
+  markSubStep(3, d.layer, true);
+
+  state.layerPaths[d.layer] = {
+    paths: d.svg_paths,
+    transform: d.transform,
+    color: d.color,
+  };
+
+  // Timeline entry shows all layers drawn so far + this one
+  const layers = [...state.drawnLayerNames, d.layer];
+  addTimelineEntry({ type: 'drawing', label: `Drawing: ${d.layer}`, layers: [...layers] });
+
+  // Queue the animation
+  state.drawQueue.push(d);
+  processDrawQueue();
+  log(`<b style="color:${LAYER_COLORS[d.layer]}">${d.layer}</b> vectorized`, 'success');
+}
+
+function onCompositionComplete(d) {
+  addTimelineEntry({ type: 'final', label: 'Complete', svg: d.svg });
+  state.pendingComposition = d;
+  processDrawQueue();
+}
+
+function applyComposition(d) {
+  setStep(3, 'complete');
+  setStep(4, 'active');
+
+  const svgCanvas = $stageCont.querySelector('#stage-svg-canvas');
+  if (svgCanvas) svgCanvas.remove();
+  if (state.stageFront) state.stageFront.style.opacity = '0';
+  if (state.stageBack) state.stageBack.style.opacity = '0';
+  const scrub = $stageCont.querySelector('.scrub-img');
+  if (scrub) scrub.style.display = 'none';
+
+  const finalDiv = document.createElement('div');
+  finalDiv.id = 'stage-svg-canvas';
+  finalDiv.style.opacity = '1';
+  finalDiv.innerHTML = d.svg;
+  $stageCont.appendChild(finalDiv);
+
+  const svg = finalDiv.querySelector('svg');
+  if (svg) {
+    svg.style.width = '100%'; svg.style.height = '100%'; svg.style.display = 'block';
+    if (state.referenceImageUrl) {
+      svg.style.background = 'transparent';
+      const bgRect = svg.querySelector('rect[fill="#ffffff"], rect[fill="white"], rect[fill="#fff"]');
+      if (bgRect) bgRect.setAttribute('fill', 'transparent');
+    }
+  }
+  // Show reference underneath
+  if (state.referenceImageUrl) showReferenceImage();
+  applyVisibility();
+  log('SVG composed with all layers', 'success');
+  setStageLabel('');
+}
+
+function onPipelineComplete(d) {
+  setStep(4, 'complete');
+  const sec = ((Date.now() - state.startTime) / 1000).toFixed(1);
+  setBadge('done', `Done (${sec}s)`);
+  log(`Pipeline complete in ${sec}s — ${d.active_layers.length} layers, ${d.files.length} files`, 'success');
+  setStageLabel('');
+  $downloadBtn.classList.remove('hidden');
+}
+
+function onPipelineError(d) {
+  setBadge('error', 'Error');
+  log(`Pipeline error: ${d.error}`, 'error');
+  setStageLabel('');
+}
+
+// ── Layer Toggles ──
+function buildToggles(layers) {
+  $toggles.innerHTML = '';
+  for (const name of layers) {
+    state.layerVisibility[name] = true;
+    const color = LAYER_COLORS[name];
+    const label = document.createElement('label');
+    label.className = 'layer-toggle';
+    const cb = document.createElement('input');
+    cb.type = 'checkbox'; cb.checked = true;
+    cb.addEventListener('change', () => {
+      state.layerVisibility[name] = cb.checked;
+      applyVisibility();
+    });
+    const sw = document.createElement('span');
+    sw.className = 'swatch'; sw.style.background = color;
+    const txt = document.createElement('span');
+    txt.textContent = name.charAt(0).toUpperCase() + name.slice(1);
+    label.append(cb, sw, txt);
+    $toggles.appendChild(label);
+  }
+}
+
+function applyVisibility() {
+  for (const name of LAYER_ORDER) {
+    const g = document.getElementById(`layer-${name}`) || document.getElementById(name);
+    if (g) g.style.display = state.layerVisibility[name] === false ? 'none' : '';
+  }
+}
+
+// ── Progress Steps ──
+function initProgress() {
+  $progress.innerHTML = '';
+  for (let i = 0; i < STEP_LABELS.length; i++) {
+    const div = document.createElement('div');
+    div.className = 'step pending';
+    div.id = `step-${i}`;
+    div.innerHTML = `<span class="icon"></span><span>${i + 1}. ${STEP_LABELS[i]}</span>`;
+    $progress.appendChild(div);
+  }
+  $elapsed.textContent = '';
+}
+
+function setStep(idx, cls) {
+  const el = $(`step-${idx}`);
+  if (!el) return;
+  if (el.classList.contains('complete') && cls !== 'complete') return;
+  el.className = `step ${cls}`;
+}
+
+function buildSubSteps(stepIdx, layers) {
+  const step = $(`step-${stepIdx}`);
+  if (!step) return;
+  let after = step;
+  for (const name of layers) {
+    const sub = document.createElement('div');
+    sub.className = 'layer-substep';
+    sub.id = `sub-${stepIdx}-${name}`;
+    sub.innerHTML = `<span class="dot" style="background:${LAYER_COLORS[name]}"></span>${name}`;
+    after.after(sub);
+    after = sub;
+  }
+}
+
+function markSubStep(stepIdx, layer, done, active = false) {
+  const sub = $(`sub-${stepIdx}-${layer}`);
+  if (!sub) return;
+  if (done) { sub.classList.remove('active'); sub.classList.add('complete'); }
+  else if (active) { sub.classList.add('active'); }
+}
+
+// ── Reset ──
+function resetUI() {
+  cancelDrawing();
+  $workspace.classList.add('hidden');
+  $dropzone.classList.remove('hidden');
+  $stageCont.innerHTML = '<div class="stage-placeholder">Waiting for vectorization...</div>';
+  $stageCont.style.width = '';
+  $stageCont.style.height = '';
+  $log.innerHTML = '';
+  $layerSect.classList.add('hidden');
+  $toggles.innerHTML = '';
+  $tlBar.classList.add('hidden');
+  $downloadBtn.classList.add('hidden');
+  setBadge('ready', 'Ready');
+  $fileInput.value = '';
+  setStageLabel('');
+  state.layerPaths = {};
+  state.detectedLayers = {};
+  state.layerVisibility = {};
+  state.stageFront = null;
+  state.stageBack = null;
+  state.svgCanvasActive = false;
+  state.drawQueue = [];
+  state.isDrawing = false;
+  state.drawTimeouts = [];
+  state.pendingComposition = null;
+  state.timeline = [];
+  state.timelineLive = true;
+  state.drawnLayerNames = [];
+  if (state.uploadedFileUrl) { URL.revokeObjectURL(state.uploadedFileUrl); state.uploadedFileUrl = null; }
+  // Keep reference image across resets (user may want to reuse it)
+}
+
+// ── Utility ──
+function setBadge(cls, text) {
+  $badge.className = `badge ${cls}`;
+  $badge.textContent = text;
+}
+</script>
+</body>
+</html>
